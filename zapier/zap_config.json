@@ -1,0 +1,216 @@
+{
+  "zap_template": {
+    "title": "Xpad Notes to iOS via Pushcut",
+    "description": "Monitor Google Drive folder for new Xpad notes and trigger iOS Shortcuts automation",
+    "version": "2.0.0",
+    "created_for": "xpad-gdrive-sync"
+  },
+  
+  "trigger": {
+    "app": "Google Drive",
+    "event": "New File in Folder",
+    "app_version": "1.0.0",
+    "config": {
+      "folder": "/XpadSync",
+      "trigger_for": "files_only",
+      "file_extensions": ["md", "txt"],
+      "include_subfolders": false,
+      "include_team_drives": false
+    },
+    "output_fields": [
+      {
+        "name": "File Name",
+        "key": "name",
+        "type": "string"
+      },
+      {
+        "name": "File ID", 
+        "key": "id",
+        "type": "string"
+      },
+      {
+        "name": "File Web View Link",
+        "key": "web_view_link", 
+        "type": "string"
+      },
+      {
+        "name": "File Download URL",
+        "key": "download_url",
+        "type": "string"
+      },
+      {
+        "name": "File Modified Time",
+        "key": "modified_time",
+        "type": "datetime"
+      },
+      {
+        "name": "File Size",
+        "key": "size",
+        "type": "integer"
+      },
+      {
+        "name": "File MIME Type",
+        "key": "mime_type",
+        "type": "string"
+      }
+    ]
+  },
+  
+  "filter": {
+    "enabled": true,
+    "logic": "AND",
+    "conditions": [
+      {
+        "field": "1.name",
+        "operator": "starts_with",
+        "value": "xpad_note_",
+        "description": "Only process files that start with xpad_note_"
+      },
+      {
+        "field": "1.size", 
+        "operator": "number_less_than",
+        "value": "10485760",
+        "description": "Only process files smaller than 10MB"
+      },
+      {
+        "field": "1.mime_type",
+        "operator": "contains",
+        "value": "text",
+        "description": "Only process text files"
+      }
+    ]
+  },
+  
+  "action": {
+    "app": "Pushcut",
+    "event": "Send Notification",
+    "app_version": "1.0.0", 
+    "config": {
+      "title": "New Xpad Note",
+      "text": "{{1.name}} created\\nSize: {{1.size}} bytes\\nModified: {{1.modified_time}}",
+      "url": "{{1.web_view_link}}",
+      "input": "{{1.download_url}}",
+      "sound": "default",
+      "badge": 1,
+      "automation_name": "ProcessXpadNote",
+      "device_id": "",
+      "action_name": "",
+      "background": false
+    },
+    "field_mappings": {
+      "title": {
+        "value": "New Xpad Note",
+        "type": "static"
+      },
+      "text": {
+        "value": "{{1.name}} created\\nSize: {{1.size}} bytes",
+        "type": "template"
+      },
+      "url": {
+        "value": "{{1.web_view_link}}",
+        "type": "dynamic"
+      },
+      "input": {
+        "value": "{{1.download_url}}",
+        "type": "dynamic"
+      },
+      "automation_name": {
+        "value": "ProcessXpadNote", 
+        "type": "static"
+      }
+    }
+  },
+  
+  "settings": {
+    "timezone": "America/New_York",
+    "task_retry": {
+      "enabled": true,
+      "max_retries": 3,
+      "retry_delay": 60
+    },
+    "error_handling": {
+      "on_trigger_error": "skip",
+      "on_action_error": "retry",
+      "send_error_emails": true
+    },
+    "rate_limiting": {
+      "max_triggers_per_hour": 100,
+      "burst_limit": 10
+    }
+  },
+  
+  "testing": {
+    "test_files": [
+      {
+        "name": "xpad_note_Test_Note_20240315_143022_a1b2c3d4.md",
+        "content": "# Test Note\\n\\nThis is a test note for Zapier integration.\\n\\n---\\n*Synced from Xpad*",
+        "size": 156,
+        "expected_trigger": true
+      },
+      {
+        "name": "info-12345",
+        "content": "window.x=100\\nwindow.y=100", 
+        "size": 50,
+        "expected_trigger": false,
+        "reason": "Not an xpad content file"
+      },
+      {
+        "name": "xpad_note_Large_File.txt",
+        "size": 11000000,
+        "expected_trigger": false,
+        "reason": "File too large (>10MB)"
+      }
+    ]
+  },
+  
+  "documentation": {
+    "setup_guide": "zapier/setup_guide.md",
+    "ios_guide": "ios/setup_guide.md", 
+    "troubleshooting": {
+      "zap_not_triggering": [
+        "Check Google Drive folder path in trigger configuration",
+        "Verify Google Drive permissions and re-authorize if needed",
+        "Test by manually uploading a file to the folder",
+        "Check filter conditions aren't too restrictive"
+      ],
+      "pushcut_not_working": [
+        "Ensure Pushcut app is installed and logged in on iOS device", 
+        "Verify iOS notification permissions are enabled",
+        "Check automation name exactly matches iOS Shortcuts automation",
+        "Test Pushcut directly from the app"
+      ],
+      "multiple_triggers": [
+        "Increase debounce_seconds in xpad configuration",
+        "Check if Google Drive is modifying files multiple times",
+        "Add unique identifiers to prevent duplicate processing"
+      ]
+    }
+  },
+  
+  "alternatives": {
+    "webhook_to_ios": {
+      "description": "Direct webhook to iOS Shortcuts (iOS 14+ required)",
+      "action": {
+        "app": "Webhooks",
+        "event": "POST",
+        "config": {
+          "url": "https://workflow.is/workflows/[YOUR_WORKFLOW_ID]",
+          "method": "POST",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "filename": "{{1.name}}",
+            "download_url": "{{1.download_url}}",
+            "size": "{{1.size}}",
+            "modified_time": "{{1.modified_time}}"
+          }
+        }
+      }
+    },
+    "ifttt_integration": {
+      "description": "Alternative using IFTTT instead of Zapier",
+      "note": "Less reliable than Zapier but free option"
+    }
+  }
+}
